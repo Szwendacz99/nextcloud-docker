@@ -1,0 +1,6 @@
+[mariadb]
+transaction-isolation = REPEATABLE-READ
+binlog-format = ROW
+innodb-file-per-table = 1
+innodb_read_only_compressed = OFF
+innodb_buffer_pool_size = 536870912

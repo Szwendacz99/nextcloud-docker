@@ -1,0 +1,99 @@
+x-logging: &logging
+ logging:
+   options:
+     max-size: 25m
+     max-file: "2"
+
+services:
+  mysql:
+    container_name: mysql
+    read_only: true
+    build: 
+      context: ./mariadb
+      dockerfile: Dockerfile
+    restart: "no"
+    volumes:
+      - type: bind
+        source: /custom/path/web/mysql
+        target: /var/lib/mysql
+      - /tmp
+      - /run
+    environment:
+    # FILL variables below
+      - MYSQL_ROOT_PASSWORD=rootpasswd
+      - MYSQL_PASSWORD=nextcloudpasswd
+      - MYSQL_DATABASE=nextclouddb
+      - MYSQL_USER=nextclouduser
+    networks:
+      - ncnet
+    <<: *logging
+
+  redis:
+    image: redis:6.2.5-alpine3.14
+    container_name: redis
+    read_only: true
+    restart: "no"
+    volumes:
+      - type: bind
+        source: /custom/path/web/redis
+        target: /data
+    expose:
+      - 6379
+    networks:
+      - ncnet
+    <<: *logging
+
+  php:
+    container_name: php
+    build: 
+      context: ./php
+      dockerfile: Dockerfile
+    restart: "no"
+    read_only: true
+    expose:
+      - 9000
+    volumes_from:
+      - apache  
+    volumes:               # for cron to create lock, it need to be 
+      - cron-php:/var/run/ # different volume than for apache container
+    depends_on:
+      - apache
+    networks:
+      - ncnet
+    <<: *logging
+
+  apache:
+    container_name: apache
+    build: 
+      context: ./apache
+      dockerfile: Dockerfile
+    restart: "no"
+    read_only: true
+    ports:
+      - 443:443
+    volumes:
+      - type: bind
+        source: /custom/path/web/nextcloud
+        target: /custom/path
+      - type: bind
+        source: /custom/path/data
+        target: /custom/path/data
+      - type: bind
+        source: /custom/path/web/ssl
+        target: /ssl
+      # below are locations that just need to be writable
+      - /var/lib/php/sessions
+      - /var/lib/apache2/fcgid
+      - /tmp
+    networks:
+      - ncnet
+    <<: *logging
+
+volumes:
+  cron-php:
+  
+networks:
+  ncnet:
+    ipam:
+      config:
+        - subnet: "10.0.0.0/24"
